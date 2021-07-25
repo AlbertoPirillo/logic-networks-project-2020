@@ -1,6 +1,6 @@
 ----------------------------------------------------------------------------------
--- Company: 
--- Engineer: 
+-- Company: Politecnico di Milano
+-- Engineer: Alberto Pirillo
 -- 
 -- Create Date: 25.07.2021 00:17:22
 -- Design Name: 
@@ -21,6 +21,9 @@
 
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.NUMERIC_STD.ALL;
+use IEEE.STD_LOGIC_UNSIGNED.ALL;
+
 
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
@@ -49,7 +52,16 @@ end project_reti_logiche;
 
 architecture Behavioral of project_reti_logiche is
 
-
 begin
 
+    -- TODO: lista di sensibilità
+    process(i_clk)
+        variable N_COLUMN, N_ROW : std_logic;
+        variable MAX_PIXEL_VALUE, MIN_PIXEL_VALUE, OUT_BEGIN : integer;
+    begin
+        N_COLUMN := i_data(0);
+        N_ROW := i_data(1);
+        OUT_BEGIN := 2 + (integer(N_COLUMN) * integer(N_ROW));
+    end process;
+    
 end Behavioral;
