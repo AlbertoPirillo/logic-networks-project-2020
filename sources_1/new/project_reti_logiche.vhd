@@ -25,90 +25,156 @@ use IEEE.NUMERIC_STD.ALL;
 use IEEE.STD_LOGIC_UNSIGNED.ALL;
 
 
--- Uncomment the following library declaration if using
--- arithmetic functions with Signed or Unsigned values
---use IEEE.NUMERIC_STD.ALL;
-
--- Uncomment the following library declaration if instantiating
--- any Xilinx leaf cells in this code.
---library UNISIM;
---use UNISIM.VComponents.all;
 
 entity project_reti_logiche is
     Port (
-           i_clk : in std_logic;
-           i_rst : in std_logic;
-           i_start : in std_logic;
-           i_data : in std_logic_vector(7 downto 0);
-           o_address : out std_logic_vector(15 downto 0);
-           o_done : out std_logic;
-           o_en : out std_logic;
-           o_we : out std_logic;
-           o_data : out std_logic_vector(7 downto 0)
-     );
+        i_clk     : in std_logic;
+        i_rst     : in std_logic;
+        i_start   : in std_logic;
+        i_data    : in std_logic_vector(7 downto 0);
+        o_address : out std_logic_vector(15 downto 0);
+        o_done    : out std_logic;
+        o_en      : out std_logic;
+        o_we      : out std_logic;
+        o_data    : out std_logic_vector(7 downto 0)
+    );
 end project_reti_logiche;
-
 
 
 
 architecture Behavioral of project_reti_logiche is
 
-begin
+    type state_type is (IDLE, FETCH_COL, FETCH_ROW, SAVE_IMG, COMPUTE_DELTA, COMPUTE_SHIFT, EQUALIZE_AND_WRITE, DONE);
+    signal curr_state, next_state : state_type;
+    signal mem_img : std_logic_vector(16383 downto 0);
 
-    -- BEST PRACTICE: std_logic_vector => unsigned => integer (=> back to std_logic_vector) 
-    -- TODO: lista di sensibilità
-    process(i_clk)
-        variable N_COLUMN, N_ROW : std_logic;
-        variable MAX_PIXEL_VALUE, MIN_PIXEL_VALUE, OUT_BEGIN : integer;
-        variable DELTA_VALUE, SHIFT_LEVEL, TEMP_PIXEL : integer;
-    begin
-        N_COLUMN := i_data(0);
-        N_ROW := i_data(1);
-        OUT_BEGIN := 2 + (integer(N_COLUMN) * integer(N_ROW));
-        
-        
-        -- Find highest and the lowest value between all pixels
-        MAX_PIXEL_VALUE := integer(i_data(2));
-        MIN_PIXEL_VALUE := integer(i_data(2));
-        
-        for i in 2 to (OUT_BEGIN - 1) loop   
-            if integer(i_data(i)) < MIN_PIXEL_VALUE then
-                MIN_PIXEL_VALUE := integer(i_data(i));
-            elsif integer(i_data(i)) > MAX_PIXEL_VALUE then
-                MAX_PIXEL_VALUE := integer(i_data(i));
-            end if;
-        end loop;     
-        
-        --Perform the equalization on each pixel
-        DELTA_VALUE := MAX_PIXEL_VALUE - MIN_PIXEL_VALUE;
-        for i in 2 to (OUT_BEGIN - 1) loop
-            -- Compute SHIFT_LEVEL by threshold discretization
-            if DELTA_VALUE = 0 then
-                SHIFT_LEVEL := 8;     
-            elsif DELTA_VALUE >= 1 AND DELTA_VALUE < 3 then
-                SHIFT_LEVEL := 7;      
-            elsif DELTA_VALUE >= 3 AND DELTA_VALUE < 7 then
-                SHIFT_LEVEL := 6;
-            elsif DELTA_VALUE >= 7 AND DELTA_VALUE < 15 then
-                SHIFT_LEVEL := 5;
-            elsif DELTA_VALUE >= 15 AND DELTA_VALUE < 31 then
-                SHIFT_LEVEL := 4;
-            elsif DELTA_VALUE >= 31 AND DELTA_VALUE < 63 then
-                SHIFT_LEVEL := 3;
-            elsif DELTA_VALUE >= 63 AND DELTA_VALUE < 127 then
-                SHIFT_LEVEL := 2;
-            elsif DELTA_VALUE >= 127 AND DELTA_VALUE < 255 then
-                SHIFT_LEVEL := 1;
-            elsif DELTA_VALUE = 255 then
-                SHIFT_LEVEL := 0;   
-            end if;    
-
---            TEMP_PIXEL = (CURRENT_PIXEL_VALUE - MIN_PIXEL_VALUE) << SHIFT_LEVEL;
---            NEW_PIXEL_VALUE = MIN( 255 , TEMP_PIXEL);
-
-
-        end loop;
-        
-   end process;
+    signal o_done_next, o_en_next, o_we_next : std_logic := '0';
+	signal o_data_next : std_logic_vector(7 downto 0) := "00000000";
+	signal o_address_next : std_logic_vector(15 downto 0) := "0000000000000000";
     
+    signal curr_pixel, curr_pixel_next : integer range 0 to 16383;
+    signal n_column, n_row, n_column_next, n_row_next : integer range 0 to 128;
+    signal max_value, min_value, max_value_next, min_value_next : integer range 0 to 255;
+    signal out_begin, out_begin_next : integer range 0 to 255;
+    signal delta_value, shift_level, temp_pixel, delta_value_next, shift_level_next, temp_pixel_next : integer range 0 to 255;
+
+begin
+    -- This process updates resets the device or updates the signals
+    process (i_clk, i_rst)
+    begin
+        if (i_rst = '1') then
+            -- Initialize the device
+            curr_pixel <= 0;
+            n_column <= 0;
+            n_row <= 0;
+            max_value <= 0;
+            min_value <= 255;
+            out_begin <= 0;
+            delta_value <= 0;
+            shift_level <= 0;
+            temp_pixel <= 0;
+            curr_state <= IDLE;
+    
+        elsif (i_clk'event and i_clk='1') then
+            -- Update the value of the signals
+            o_done <= o_done_next;
+            o_en <= o_en_next;
+            o_we <= o_we_next;
+            o_data <= o_data_next;
+            o_address <= o_address_next;
+
+            curr_pixel <= curr_pixel_next;
+            n_column <= n_column_next;
+            n_row <= n_row_next;
+            max_value <= max_value_next;
+            min_value <= min_value_next;
+            out_begin <= out_begin_next;
+            delta_value <= delta_value_next;
+            shift_level <= shift_level_next;
+            temp_pixel <= temp_pixel_next;
+
+            curr_state <= next_state;
+        end if;
+    end process;
+
+
+    -- TODO: lista di sensibilitÃ 
+    process(curr_state, i_data, i_start, curr_pixel, n_column, n_row, max_value, min_value, out_begin, delta_value, shift_level, temp_pixel)
+        variable temp_integer: integer range 0 to 255;
+        variable temp_vector : std_logic_vector(7 downto 0);
+    begin  
+        -- FSA
+        case curr_state is
+            when IDLE =>
+                if(i_start = '1') then
+                    next_state <= FETCH_COL;
+                end if;
+
+            when FETCH_COL =>
+                n_column_next <= integer(i_data);
+                next_state <= FETCH_ROW;
+
+            when FETCH_ROW =>
+                n_row_next <= integer(i_data);
+                out_begin_next <= 2 + (n_column * n_row);
+                next_state <= SAVE_IMG;
+
+            when SAVE_IMG =>
+                -- Save pixel to memory
+                mem_img(curr_pixel + 7 downto curr_pixel) <= i_data;
+                curr_pixel_next <= curr_pixel + 8;
+                -- Update maximum and minimum value
+                if integer(i_data) < min_value then
+                    min_value_next <= integer(i_data);
+                elsif integer(i_data) > max_value then
+                    max_value_next <= integer(i_data);
+                end if;
+                next_state <= COMPUTE_DELTA;
+
+            when COMPUTE_DELTA =>
+                delta_value_next <= max_value - min_value;
+                next_state <= COMPUTE_SHIFT;
+        
+            when COMPUTE_SHIFT =>
+                -- Compute shift_level by threshold discretization
+                if delta_value = 0 then
+                    shift_level_next <= 8;
+                elsif delta_value >= 1 AND delta_value < 3 then
+                    shift_level_next <= 7;
+                elsif delta_value >= 3 AND delta_value < 7 then
+                    shift_level_next <= 6;
+                elsif delta_value >= 7 AND delta_value < 15 then
+                    shift_level_next <= 5;
+                elsif delta_value >= 15 AND delta_value < 31 then
+                    shift_level_next <= 4;
+                elsif delta_value >= 31 AND delta_value < 63 then
+                    shift_level_next <= 3;
+                elsif delta_value >= 63 AND delta_value < 127 then
+                    shift_level_next <= 2;
+                elsif delta_value >= 127 AND delta_value < 255 then
+                    shift_level_next <= 1;
+                elsif delta_value = 255 then
+                    shift_level_next <= 0;
+                end if;
+                curr_pixel_next <= 0;
+                o_we_next <= '1';
+                next_state <= EQUALIZE_AND_WRITE;
+
+            when EQUALIZE_AND_WRITE =>
+                if curr_pixel <= ((n_column * n_row) - 1) then
+                    temp_integer := (integer(mem_img(curr_pixel + 7 downto curr_pixel)) - min_value);
+                    temp_vector := std_logic_vector(shift_left(unsigned(temp_integer), shift_level));
+                    o_data_next <= std_logic_vector(minimum(255, integer(temp_vector)));
+                    o_address_next <= std_logic_vector(out_begin + curr_pixel);
+                    curr_pixel_next <= curr_pixel + 8;
+                else 
+                    o_done_next <= '1';
+                    next_state <= DONE;
+                end if;
+                
+            when DONE =>
+                    next_state <= IDLE;
+        end case;
+    end process;
+
 end Behavioral;
