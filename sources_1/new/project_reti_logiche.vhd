@@ -45,8 +45,10 @@ end project_reti_logiche;
 architecture Behavioral of project_reti_logiche is
 
     type state_type is (IDLE, FETCH_COL, FETCH_ROW, SAVE_IMG, COMPUTE_DELTA, COMPUTE_SHIFT, EQUALIZE_AND_WRITE, DONE);
+    type pixel_array is array (16383 downto 0) of std_logic_vector(7 downto 0);
+    
     signal curr_state, next_state : state_type;
-    signal mem_img : std_logic_vector(16383 downto 0);
+    signal mem_img : pixel_array;
 
     signal o_done_next, o_en_next, o_we_next : std_logic := '0';
 	signal o_data_next : std_logic_vector(7 downto 0) := "00000000";
@@ -75,7 +77,7 @@ begin
             temp_pixel <= 0;
             curr_state <= IDLE;
     
-        elsif (i_clk'event and i_clk='1') then
+        elsif (i_clk'event and i_clk = '1') then
             -- Update the value of the signals
             o_done <= o_done_next;
             o_en <= o_en_next;
@@ -103,10 +105,29 @@ begin
         variable i_data_integer, temp_integer: integer range 0 to 255;
         variable temp_vector : std_logic_vector(7 downto 0);
     begin  
+        o_done_next <= '0';
+--        o_en_next <= '0';
+--        o_we_next <= '0';
+        o_data_next <= "00000000";
+        o_address_next <= "0000000000000000";
+        
+        curr_pixel_next <= curr_pixel;
+        n_column_next <= n_column;
+        n_row_next <= n_row;
+        max_value_next <= max_value;
+        min_value_next <= min_value;
+        out_begin_next <= out_begin;
+        delta_value_next <= delta_value;
+        shift_level_next <= shift_level;
+        temp_pixel_next <= temp_pixel;
+
+        next_state <= curr_state;
         -- FSA
         case curr_state is
             when IDLE =>
                 if(i_start = '1') then
+                    o_en_next <= '1';
+                    o_we_next <= '0';
                     next_state <= FETCH_COL;
                 end if;
 
@@ -121,8 +142,8 @@ begin
 
             when SAVE_IMG =>
                 -- Save pixel to memory
-                mem_img(curr_pixel + 7 downto curr_pixel) <= i_data;
-                curr_pixel_next <= curr_pixel + 8;
+                mem_img(curr_pixel) <= i_data; 
+                curr_pixel_next <= curr_pixel + 1;
                 -- Update maximum and minimum value
                 i_data_integer := conv_integer(i_data);
                 if i_data_integer < min_value then
@@ -163,11 +184,11 @@ begin
 
             when EQUALIZE_AND_WRITE =>
                 if curr_pixel <= ((n_column * n_row) - 1) then
-                    temp_integer := (conv_integer(mem_img(curr_pixel + 7 downto curr_pixel)) - min_value);
+                    temp_integer := (conv_integer(mem_img(curr_pixel)) - min_value);
                     temp_vector := std_logic_vector(shift_left(to_unsigned(temp_integer, 8), shift_level));
                     o_data_next <= std_logic_vector(to_unsigned(minimum(255, to_integer(unsigned(temp_vector))), 8));
                     o_address_next <= std_logic_vector(to_unsigned((out_begin + curr_pixel), 16));
-                    curr_pixel_next <= curr_pixel + 8;
+                    curr_pixel_next <= curr_pixel + 1;
                 else 
                     o_done_next <= '1';
                     next_state <= DONE;
