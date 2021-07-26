@@ -100,7 +100,7 @@ begin
 
     -- TODO: lista di sensibilità
     process(curr_state, i_data, i_start, curr_pixel, n_column, n_row, max_value, min_value, out_begin, delta_value, shift_level, temp_pixel)
-        variable temp_integer: integer range 0 to 255;
+        variable i_data_integer, temp_integer: integer range 0 to 255;
         variable temp_vector : std_logic_vector(7 downto 0);
     begin  
         -- FSA
@@ -111,11 +111,11 @@ begin
                 end if;
 
             when FETCH_COL =>
-                n_column_next <= integer(i_data);
+                n_column_next <= conv_integer(i_data);
                 next_state <= FETCH_ROW;
 
             when FETCH_ROW =>
-                n_row_next <= integer(i_data);
+                n_row_next <= conv_integer(i_data);
                 out_begin_next <= 2 + (n_column * n_row);
                 next_state <= SAVE_IMG;
 
@@ -124,10 +124,11 @@ begin
                 mem_img(curr_pixel + 7 downto curr_pixel) <= i_data;
                 curr_pixel_next <= curr_pixel + 8;
                 -- Update maximum and minimum value
-                if integer(i_data) < min_value then
-                    min_value_next <= integer(i_data);
-                elsif integer(i_data) > max_value then
-                    max_value_next <= integer(i_data);
+                i_data_integer := conv_integer(i_data);
+                if i_data_integer < min_value then
+                    min_value_next <= i_data_integer;
+                elsif i_data_integer > max_value then
+                    max_value_next <= i_data_integer;
                 end if;
                 next_state <= COMPUTE_DELTA;
 
@@ -162,10 +163,10 @@ begin
 
             when EQUALIZE_AND_WRITE =>
                 if curr_pixel <= ((n_column * n_row) - 1) then
-                    temp_integer := (integer(mem_img(curr_pixel + 7 downto curr_pixel)) - min_value);
-                    temp_vector := std_logic_vector(shift_left(unsigned(temp_integer), shift_level));
-                    o_data_next <= std_logic_vector(minimum(255, integer(temp_vector)));
-                    o_address_next <= std_logic_vector(out_begin + curr_pixel);
+                    temp_integer := (conv_integer(mem_img(curr_pixel + 7 downto curr_pixel)) - min_value);
+                    temp_vector := std_logic_vector(shift_left(to_unsigned(temp_integer, 8), shift_level));
+                    o_data_next <= std_logic_vector(to_unsigned(minimum(255, to_integer(unsigned(temp_vector))), 8));
+                    o_address_next <= std_logic_vector(to_unsigned((out_begin + curr_pixel), 16));
                     curr_pixel_next <= curr_pixel + 8;
                 else 
                     o_done_next <= '1';
