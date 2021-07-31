@@ -79,7 +79,7 @@ begin
             curr_state <= IDLE;
     
         -- TODO: change this to use rising_edge
-        elsif (i_clk'event and i_clk = '1') then
+        elsif rising_edge(i_clk) then
             -- Update the value of the signals
             o_done <= o_done_next;
             o_en <= o_en_next;
