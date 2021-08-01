@@ -75,7 +75,6 @@ begin
             shift_level <= 0;
             temp_pixel <= 0;
             curr_pixel <= 0;
-            r_address <= "0000000000000010";
             curr_state <= IDLE;
     
         -- TODO: change this to use rising_edge
@@ -114,6 +113,8 @@ begin
         o_done_next <= '0';
         o_data_next <= "00000000";
         o_address_next <= "0000000000000000";
+        o_en_next <= '1';
+        o_we_next <= '0';
 
         r_address_next <= r_address;
         w_address_next <= w_address;
@@ -139,25 +140,27 @@ begin
 
             when FETCH_COL =>
                 n_column_next <= conv_integer(i_data);
-                o_address_next <= o_address + 1;
+                o_address_next <= "0000000000000001";
                 next_state <= FETCH_ROW;
 
             when FETCH_ROW =>
                 n_row_next <= conv_integer(i_data);
-                o_address_next <= o_address + 1;
-                out_begin_next <= 2 + (n_column * n_row);
+                o_address_next <= "0000000000000010";
+                r_address_next <= "0000000000000010";
+                out_begin_next <= 2 + (n_column * conv_integer(i_data));
                 next_state <= SAVE_MAX_MIN;
 
             when SAVE_MAX_MIN =>
                 -- Update maximum and minimum value
-                if o_address_next < out_begin then
+                if r_address < out_begin then
                     i_data_integer := conv_integer(i_data);
                     if i_data_integer < min_value then
                         min_value_next <= i_data_integer;
                     elsif i_data_integer > max_value then
                         max_value_next <= i_data_integer;
                     end if;
-                    o_address_next <= o_address + 1;
+                    o_address_next <= r_address + 1;
+                    r_address_next <= r_address + 1;
                 else 
                     -- MAX and MIN found
                     o_en_next <= '0';
@@ -191,7 +194,8 @@ begin
                 end if;
                 o_en_next <= '1';
                 o_we_next <= '0';
-                o_address_next <= r_address;
+                r_address_next <= "0000000000000010";
+                o_address_next <= "0000000000000010";
                 w_address_next <= std_logic_vector(to_unsigned(out_begin, 16));
                 next_state <= READ_PIXEL;
 
