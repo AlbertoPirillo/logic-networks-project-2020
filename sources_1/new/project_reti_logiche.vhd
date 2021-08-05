@@ -1,21 +1,9 @@
 ----------------------------------------------------------------------------------
 -- Company: Politecnico di Milano
 -- Engineer: Alberto Pirillo
--- 
--- Create Date: 25.07.2021 00:17:22
--- Design Name: 
+-- Professor: Gianluca Palermo
+-- Year: 2020/2021
 -- Module Name: project_reti_logiche - Behavioral
--- Project Name: 
--- Target Devices: 
--- Tool Versions: 
--- Description: 
--- 
--- Dependencies: 
--- 
--- Revision:
--- Revision 0.01 - File Created
--- Additional Comments:
--- 
 ----------------------------------------------------------------------------------
 
 
@@ -51,7 +39,7 @@ architecture Behavioral of project_reti_logiche is
 	signal o_data_next : std_logic_vector(7 downto 0) := "00000000";
 	signal o_address_next : std_logic_vector(15 downto 0) := "0000000000000000";
 
-    signal pixel_count, pixel_count_next: integer range 0 to 16384;
+    -- TODO: all these signals should be initialized
     signal curr_pixel, curr_pixel_next : integer range 0 to 255;
     signal r_address, w_address, r_address_next, w_address_next : std_logic_vector(15 downto 0) := "0000000000000000";
     signal n_column, n_row, n_column_next, n_row_next : integer range 0 to 128;
@@ -65,7 +53,9 @@ begin
     begin
         if (i_rst = '1') then
             -- Initialize the device
-            pixel_count <= 0;
+            curr_pixel <= 0;
+            r_address <= "0000000000000000";
+            w_address <= "0000000000000000";
             n_column <= 0;
             n_row <= 0;
             max_value <= 0;
@@ -74,7 +64,6 @@ begin
             delta_value <= 0;
             shift_level <= 0;
             temp_pixel <= 0;
-            curr_pixel <= 0;
             curr_state <= IDLE;
     
         -- TODO: change this to use rising_edge
@@ -86,10 +75,9 @@ begin
             o_data <= o_data_next;
             o_address <= o_address_next;
             
+            curr_pixel <= curr_pixel_next;
             r_address <= r_address_next;
             w_address <= w_address_next;
-            pixel_count <= pixel_count_next;
-            curr_pixel <= curr_pixel_next;
             n_column <= n_column_next;
             n_row <= n_row_next;
             max_value <= max_value_next;
@@ -104,18 +92,21 @@ begin
     end process;
 
 
-    -- TODO: check sensibility list
-    process(curr_state, i_data, i_start, n_column, n_row, max_value, min_value, out_begin, delta_value, shift_level, temp_pixel)
-        variable i_data_integer: integer range 0 to 255;
-        variable temp_vector : std_logic_vector(7 downto 0);
-        variable temp_pixel: integer range 0 to 255;
+    process(curr_state, i_data, i_start, curr_pixel, r_address, w_address, n_column,
+            n_row, max_value, min_value, out_begin, delta_value, shift_level, temp_pixel)
+        
+        variable i_data_integer: integer range 0 to 255 := 0;
+        variable temp_vector : std_logic_vector(7 downto 0) := "00000000";
+        variable temp_integer: integer range 0 to 255 := 0;
+    
     begin  
         o_done_next <= '0';
+        o_en_next <= '0';
+        o_we_next <= '0';
         o_data_next <= "00000000";
         o_address_next <= "0000000000000000";
-        o_en_next <= '1';
-        o_we_next <= '0';
-
+        
+        curr_pixel_next <= curr_pixel;
         r_address_next <= r_address;
         w_address_next <= w_address;
         n_column_next <= n_column;
@@ -128,13 +119,11 @@ begin
         temp_pixel_next <= temp_pixel;
 
         next_state <= curr_state;
+
         -- FSA
         case curr_state is
             when IDLE =>
                 if(i_start = '1') then
-                    o_address_next <= "0000000000000000";
-                    o_en_next <= '1';
-                    o_we_next <= '0';
                     next_state <= FETCH_COL;
                 end if;
 
@@ -216,7 +205,7 @@ begin
                 end if;
     
             when EQUALIZE_AND_WRITE =>
-                temp_pixel := curr_pixel - min_value;
+                temp_integer := curr_pixel - min_value;
                 temp_vector := std_logic_vector(shift_left(to_unsigned(temp_pixel, 8), shift_level));
                 o_data_next <= std_logic_vector(to_unsigned(minimum(255, to_integer(unsigned(temp_vector))), 8));
                 
