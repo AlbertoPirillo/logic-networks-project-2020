@@ -32,20 +32,23 @@ end project_reti_logiche;
 
 architecture Behavioral of project_reti_logiche is
 
-    type state_type is (IDLE, FETCH_COL, FETCH_ROW, SAVE_MAX_MIN, COMPUTE_DELTA, COMPUTE_SHIFT, READ_PIXEL, EQUALIZE_AND_WRITE, DONE);
+    type state_type is (IDLE, RAM_SYNCHRO, FETCH_COL, FETCH_ROW, SAVE_MAX_MIN, COMPUTE_DELTA, COMPUTE_SHIFT, READ_PIXEL, EQUALIZE_AND_WRITE, DONE);
     signal curr_state, next_state : state_type;
 
     signal o_done_next, o_en_next, o_we_next : std_logic := '0';
 	signal o_data_next : std_logic_vector(7 downto 0) := "00000000";
 	signal o_address_next : std_logic_vector(15 downto 0) := "0000000000000000";
 
-    -- TODO: all these signals should be initialized
-    signal curr_pixel, curr_pixel_next : integer range 0 to 255;
+    -- curr_pixel stores the value of a pixel between READ_PIXEL and EQUALIZE_AND_WRITE
+    signal curr_pixel, curr_pixel_next : integer range 0 to 255 := 0;
+    -- pixel_read_count stores how many pixel of the image have been already read
+    signal pixel_read_count, pixel_read_count_next : integer range 0 to 255 := 0;
     signal r_address, w_address, r_address_next, w_address_next : std_logic_vector(15 downto 0) := "0000000000000000";
-    signal n_column, n_row, n_column_next, n_row_next : integer range 0 to 128;
-    signal max_value, min_value, max_value_next, min_value_next : integer range 0 to 255;
-    signal out_begin, out_begin_next : integer range 0 to 255;
-    signal delta_value, shift_level, temp_pixel, delta_value_next, shift_level_next, temp_pixel_next : integer range 0 to 255;
+    signal n_column, n_row, n_column_next, n_row_next : integer range 0 to 128 := 0;
+    signal max_value, max_value_next : integer range 0 to 255 := 0;
+    signal min_value, min_value_next : integer range 0 to 255 := 255;
+    signal out_begin, out_begin_next : integer range 0 to 255 := 0;
+    signal delta_value, shift_level,delta_value_next, shift_level_next: integer range 0 to 255 := 0;
 
 begin
     -- This process updates resets the device or updates the signals
@@ -54,6 +57,7 @@ begin
         if (i_rst = '1') then
             -- Initialize the device
             curr_pixel <= 0;
+            pixel_read_count <= 0;
             r_address <= "0000000000000000";
             w_address <= "0000000000000000";
             n_column <= 0;
@@ -63,7 +67,6 @@ begin
             out_begin <= 0;
             delta_value <= 0;
             shift_level <= 0;
-            temp_pixel <= 0;
             curr_state <= IDLE;
     
         -- TODO: change this to use rising_edge
@@ -76,6 +79,7 @@ begin
             o_address <= o_address_next;
             
             curr_pixel <= curr_pixel_next;
+            pixel_read_count <= pixel_read_count_next;
             r_address <= r_address_next;
             w_address <= w_address_next;
             n_column <= n_column_next;
@@ -85,15 +89,14 @@ begin
             out_begin <= out_begin_next;
             delta_value <= delta_value_next;
             shift_level <= shift_level_next;
-            temp_pixel <= temp_pixel_next;
 
             curr_state <= next_state;
         end if;
     end process;
 
 
-    process(curr_state, i_data, i_start, curr_pixel, r_address, w_address, n_column,
-            n_row, max_value, min_value, out_begin, delta_value, shift_level, temp_pixel)
+    process(curr_state, i_data, i_start, curr_pixel, pixel_read_count, r_address, w_address,
+            n_column, n_row, max_value, min_value, out_begin, delta_value, shift_level)
         
         variable i_data_integer: integer range 0 to 255 := 0;
         variable temp_vector : std_logic_vector(7 downto 0) := "00000000";
@@ -107,6 +110,7 @@ begin
         o_address_next <= "0000000000000000";
         
         curr_pixel_next <= curr_pixel;
+        pixel_read_count_next <= pixel_read_count;
         r_address_next <= r_address;
         w_address_next <= w_address;
         n_column_next <= n_column;
@@ -116,32 +120,45 @@ begin
         out_begin_next <= out_begin;
         delta_value_next <= delta_value;
         shift_level_next <= shift_level;
-        temp_pixel_next <= temp_pixel;
 
         next_state <= curr_state;
 
-        -- FSA
+        -- FSM
         case curr_state is
             when IDLE =>
                 if(i_start = '1') then
-                    next_state <= FETCH_COL;
+                    o_en_next <= '1';
+                    o_we_next <= '0';
+                    next_state <= RAM_SYNCHRO;
                 end if;
 
+            when RAM_SYNCHRO => 
+                o_en_next <= '1';
+                o_we_next <= '0';
+                o_address_next <= "0000000000000001";
+                next_state <= FETCH_COL;    
+            
             when FETCH_COL =>
                 n_column_next <= conv_integer(i_data);
-                o_address_next <= "0000000000000001";
+                o_address_next <= "0000000000000010";
+          
+                o_en_next <= '1';
+                o_we_next <= '0';
                 next_state <= FETCH_ROW;
 
             when FETCH_ROW =>
                 n_row_next <= conv_integer(i_data);
-                o_address_next <= "0000000000000010";
-                r_address_next <= "0000000000000010";
+                o_address_next <= "0000000000000011";
+                r_address_next <= "0000000000000011";
                 out_begin_next <= 2 + (n_column * conv_integer(i_data));
+                
+                o_en_next <= '1';
+                o_we_next <= '0';
                 next_state <= SAVE_MAX_MIN;
 
             when SAVE_MAX_MIN =>
                 -- Update maximum and minimum value
-                if r_address < out_begin then
+                if pixel_read_count < (out_begin - 2) then
                     i_data_integer := conv_integer(i_data);
                     if i_data_integer < min_value then
                         min_value_next <= i_data_integer;
@@ -149,16 +166,20 @@ begin
                         max_value_next <= i_data_integer;
                     end if;
                     o_address_next <= r_address + 1;
+                    pixel_read_count_next <= pixel_read_count + 1;
                     r_address_next <= r_address + 1;
+                    o_en_next <= '1';
+                    o_we_next <= '0';
                 else 
                     -- MAX and MIN found
-                    o_en_next <= '0';
+                    pixel_read_count_next <= 0;
                     next_state <= COMPUTE_DELTA;
                 end if;
 
             when COMPUTE_DELTA =>
                 delta_value_next <= max_value - min_value;
                 next_state <= COMPUTE_SHIFT;
+                
         
             when COMPUTE_SHIFT =>
                 -- Compute shift_level by threshold discretization
@@ -181,21 +202,25 @@ begin
                 elsif delta_value = 255 then
                     shift_level_next <= 0;
                 end if;
+                
+                o_address_next <= "0000000000000010";
+                r_address_next <= "0000000000000010";
+                w_address_next <= std_logic_vector(to_unsigned(out_begin, 16));
+                
                 o_en_next <= '1';
                 o_we_next <= '0';
-                r_address_next <= "0000000000000010";
-                o_address_next <= "0000000000000010";
-                w_address_next <= std_logic_vector(to_unsigned(out_begin, 16));
                 next_state <= READ_PIXEL;
 
             when READ_PIXEL =>
-                if r_address < out_begin then
+                if pixel_read_count < (out_begin - 2) then
                     curr_pixel_next <= to_integer(unsigned(i_data));
 
                     -- Prepare to write in the next state
+                    o_en_next <= '1';
                     o_we_next <= '1';
                     o_address_next <= w_address;
-                
+                    
+                    pixel_read_count_next <= pixel_read_count + 1;
                     r_address_next <= r_address + 1;
                     next_state <= EQUALIZE_AND_WRITE;
                 else 
@@ -206,10 +231,11 @@ begin
     
             when EQUALIZE_AND_WRITE =>
                 temp_integer := curr_pixel - min_value;
-                temp_vector := std_logic_vector(shift_left(to_unsigned(temp_pixel, 8), shift_level));
+                temp_vector := std_logic_vector(shift_left(to_unsigned(curr_pixel, 8), shift_level));
                 o_data_next <= std_logic_vector(to_unsigned(minimum(255, to_integer(unsigned(temp_vector))), 8));
                 
                 -- Prepare to read in the next state
+                o_en_next <= '1';
                 o_we_next <= '0';
                 o_address_next <= r_address;
 
