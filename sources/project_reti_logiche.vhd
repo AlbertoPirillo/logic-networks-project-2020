@@ -32,7 +32,7 @@ end project_reti_logiche;
 
 architecture Behavioral of project_reti_logiche is
 
-    type state_type is (IDLE, RAM_SYNCHRO, FETCH_COL, FETCH_ROW, SAVE_MAX_MIN, COMPUTE_DELTA, COMPUTE_SHIFT, READ_PIXEL, EQUALIZE_AND_WRITE, DONE);
+    type state_type is (IDLE, ASK_DIM, RAM_SYNCHRO, READ_DIM, PREP_SEQ_R, SAVE_MAX_MIN, COMPUTE_SHIFT, PREP_SEQ_RW, READ_PIXEL, EQUALIZE_AND_WRITE, DONE);
     signal curr_state, next_state : state_type;
 
     signal o_done_next, o_en_next, o_we_next : std_logic := '0';
@@ -43,12 +43,16 @@ architecture Behavioral of project_reti_logiche is
     signal curr_pixel, curr_pixel_next : integer range 0 to 255 := 0;
     -- pixel_read_count stores how many pixel of the image have been already read
     signal pixel_read_count, pixel_read_count_next : integer range 0 to 255 := 0;
+    -- Those flags tell whether the two dimensions of the image were already read or not
+    signal got_column, got_row, got_column_next, got_row_next : boolean := false;
+    -- Signals used to manipulate o_address more easily
     signal r_address, w_address, r_address_next, w_address_next : std_logic_vector(15 downto 0) := "0000000000000000";
+    
     signal n_column, n_row, n_column_next, n_row_next : integer range 0 to 128 := 0;
     signal max_value, max_value_next : integer range 0 to 255 := 0;
     signal min_value, min_value_next : integer range 0 to 255 := 255;
     signal out_begin, out_begin_next : integer range 0 to 255 := 0;
-    signal delta_value, shift_level,delta_value_next, shift_level_next: integer range 0 to 255 := 0;
+    signal shift_level, shift_level_next: integer range 0 to 255 := 0;
 
 begin
     -- This process updates resets the device or updates the signals
@@ -58,6 +62,8 @@ begin
             -- Initialize the device
             curr_pixel <= 0;
             pixel_read_count <= 0;
+            got_column <= false;
+            got_row <= false;
             r_address <= "0000000000000000";
             w_address <= "0000000000000000";
             n_column <= 0;
@@ -65,7 +71,6 @@ begin
             max_value <= 0;
             min_value <= 255;
             out_begin <= 0;
-            delta_value <= 0;
             shift_level <= 0;
             curr_state <= IDLE;
     
@@ -80,6 +85,8 @@ begin
             
             curr_pixel <= curr_pixel_next;
             pixel_read_count <= pixel_read_count_next;
+            got_column <= got_column_next;
+            got_row <= got_row_next;
             r_address <= r_address_next;
             w_address <= w_address_next;
             n_column <= n_column_next;
@@ -87,7 +94,6 @@ begin
             max_value <= max_value_next;
             min_value <= min_value_next;
             out_begin <= out_begin_next;
-            delta_value <= delta_value_next;
             shift_level <= shift_level_next;
 
             curr_state <= next_state;
@@ -95,11 +101,12 @@ begin
     end process;
 
 
-    process(curr_state, i_data, i_start, curr_pixel, pixel_read_count, r_address, w_address,
-            n_column, n_row, max_value, min_value, out_begin, delta_value, shift_level)
+    process(curr_state, i_data, i_start, curr_pixel, pixel_read_count, got_column, got_row,
+            r_address, w_address, n_column, n_row, max_value, min_value, out_begin, shift_level)
         
+        variable delta_value: integer range 0 to 255 := 0;
         variable i_data_integer: integer range 0 to 255 := 0;
-        variable temp_vector : std_logic_vector(7 downto 0) := "00000000";
+        variable temp_vector : std_logic_vector(15 downto 0) := "0000000000000000";
         variable temp_integer: integer range 0 to 255 := 0;
     
     begin  
@@ -111,6 +118,8 @@ begin
         
         curr_pixel_next <= curr_pixel;
         pixel_read_count_next <= pixel_read_count;
+        got_column_next <= got_column;
+        got_row_next <= got_row;
         r_address_next <= r_address;
         w_address_next <= w_address;
         n_column_next <= n_column;
@@ -118,7 +127,6 @@ begin
         max_value_next <= max_value;
         min_value_next <= min_value;
         out_begin_next <= out_begin;
-        delta_value_next <= delta_value;
         shift_level_next <= shift_level;
 
         next_state <= curr_state;
@@ -129,31 +137,45 @@ begin
                 if(i_start = '1') then
                     o_en_next <= '1';
                     o_we_next <= '0';
-                    next_state <= RAM_SYNCHRO;
+                    next_state <= ASK_DIM;
                 end if;
 
-            when RAM_SYNCHRO => 
+            when ASK_DIM =>
+                if got_column = false then
+                    o_address_next <= "0000000000000000";
+                elsif got_row = false then
+                    o_address_next <= "0000000000000001";
+                end if;
                 o_en_next <= '1';
                 o_we_next <= '0';
-                o_address_next <= "0000000000000001";
-                next_state <= FETCH_COL;    
+                next_state <= RAM_SYNCHRO;
             
-            when FETCH_COL =>
-                n_column_next <= conv_integer(i_data);
-                o_address_next <= "0000000000000010";
-          
+            when RAM_SYNCHRO => 
+                next_state <= READ_DIM;    
+            
+            when READ_DIM =>
+                if got_column = false then
+                    n_column_next <= conv_integer(i_data);
+                    got_column_next <= true;
+                    next_state <= ASK_DIM;
+                elsif got_row = false then
+                    n_row_next <= conv_integer(i_data);
+                    out_begin_next <= 2 + (n_column * conv_integer(i_data));
+                    got_row_next <= true;
+
+                    -- Prepare to read sequentially
+                    o_en_next <= '1';
+                    o_we_next <= '0';
+                    o_address_next <= "0000000000000010";
+                    r_address_next <= "0000000000000010";
+                    next_state <= PREP_SEQ_R;
+                end if;
+              
+            when PREP_SEQ_R =>
                 o_en_next <= '1';
                 o_we_next <= '0';
-                next_state <= FETCH_ROW;
-
-            when FETCH_ROW =>
-                n_row_next <= conv_integer(i_data);
                 o_address_next <= "0000000000000011";
                 r_address_next <= "0000000000000011";
-                out_begin_next <= 2 + (n_column * conv_integer(i_data));
-                
-                o_en_next <= '1';
-                o_we_next <= '0';
                 next_state <= SAVE_MAX_MIN;
 
             when SAVE_MAX_MIN =>
@@ -165,23 +187,22 @@ begin
                     elsif i_data_integer > max_value then
                         max_value_next <= i_data_integer;
                     end if;
-                    o_address_next <= r_address + 1;
                     pixel_read_count_next <= pixel_read_count + 1;
-                    r_address_next <= r_address + 1;
+
+                    -- Keep reading sequentially
                     o_en_next <= '1';
                     o_we_next <= '0';
+                    o_address_next <= r_address + 1;
+                    r_address_next <= r_address + 1;          
+             
                 else 
                     -- MAX and MIN found
                     pixel_read_count_next <= 0;
-                    next_state <= COMPUTE_DELTA;
+                    next_state <= COMPUTE_SHIFT;
                 end if;
-
-            when COMPUTE_DELTA =>
-                delta_value_next <= max_value - min_value;
-                next_state <= COMPUTE_SHIFT;
-                
         
             when COMPUTE_SHIFT =>
+                delta_value := max_value - min_value;
                 -- Compute shift_level by threshold discretization
                 if delta_value = 0 then
                     shift_level_next <= 8;
@@ -203,43 +224,45 @@ begin
                     shift_level_next <= 0;
                 end if;
                 
+                -- Prepare to read and write sequentially
+                o_en_next <= '1';
+                o_we_next <= '0';
                 o_address_next <= "0000000000000010";
                 r_address_next <= "0000000000000010";
                 w_address_next <= std_logic_vector(to_unsigned(out_begin, 16));
-                
-                o_en_next <= '1';
-                o_we_next <= '0';
+                next_state <= PREP_SEQ_RW;
+
+            when PREP_SEQ_RW =>
                 next_state <= READ_PIXEL;
 
             when READ_PIXEL =>
                 if pixel_read_count < (out_begin - 2) then
                     curr_pixel_next <= to_integer(unsigned(i_data));
-
-                    -- Prepare to write in the next state
-                    o_en_next <= '1';
-                    o_we_next <= '1';
-                    o_address_next <= w_address;
-                    
                     pixel_read_count_next <= pixel_read_count + 1;
                     r_address_next <= r_address + 1;
+
+                    -- Ask RAM to loead the next pixel
+                    o_en_next <= '1';
+                    o_we_next <= '0';
+                    o_address_next <= r_address + 1;
                     next_state <= EQUALIZE_AND_WRITE;
                 else 
                     o_we_next <= '0';
                     o_en_next <= '0';
+                    o_done_next <= '1';
                     next_state <= DONE;
                 end if;
     
             when EQUALIZE_AND_WRITE =>
                 temp_integer := curr_pixel - min_value;
-                temp_vector := std_logic_vector(shift_left(to_unsigned(curr_pixel, 8), shift_level));
+                temp_vector := std_logic_vector(shift_left(to_unsigned(temp_integer, 16), shift_level));
                 o_data_next <= std_logic_vector(to_unsigned(minimum(255, to_integer(unsigned(temp_vector))), 8));
-                
-                -- Prepare to read in the next state
-                o_en_next <= '1';
-                o_we_next <= '0';
-                o_address_next <= r_address;
-
                 w_address_next <= w_address + 1;
+
+                -- Write at the next clock cycle
+                o_en_next <= '1';
+                o_we_next <= '1';
+                o_address_next <= w_address;
                 next_state <= READ_PIXEL;
                 
             when DONE =>
