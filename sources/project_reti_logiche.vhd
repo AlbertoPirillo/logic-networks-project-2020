@@ -241,7 +241,7 @@ begin
                     pixel_read_count_next <= pixel_read_count + 1;
                     r_address_next <= r_address + 1;
 
-                    -- Ask RAM to loead the next pixel
+                    -- Ask RAM to load the next pixel
                     o_en_next <= '1';
                     o_we_next <= '0';
                     o_address_next <= r_address + 1;
@@ -256,7 +256,14 @@ begin
             when EQUALIZE_AND_WRITE =>
                 temp_integer := curr_pixel - min_value;
                 temp_vector := std_logic_vector(shift_left(to_unsigned(temp_integer, 16), shift_level));
-                o_data_next <= std_logic_vector(to_unsigned(minimum(255, to_integer(unsigned(temp_vector))), 8));
+                --- o_data_next <= std_logic_vector(to_unsigned(minimum(255, to_integer(unsigned(temp_vector))), 8));
+                
+                -- Select the minimum between 255 and temp_vector
+                if to_integer(unsigned(temp_vector)) <= 255 then
+                    o_data_next <= std_logic_vector(to_unsigned(to_integer(unsigned(temp_vector)), 8)); 
+                else
+                    o_data_next <= std_logic_vector(to_unsigned(255, 8));
+                end if;
                 w_address_next <= w_address + 1;
 
                 -- Write at the next clock cycle
