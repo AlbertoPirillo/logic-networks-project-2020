@@ -42,7 +42,7 @@ architecture Behavioral of project_reti_logiche is
     -- curr_pixel stores the value of a pixel between READ_PIXEL and EQ_AND_WRITE
     signal curr_pixel, curr_pixel_next : integer range 0 to 255 := 0;
     -- pixel_read_count stores how many pixel of the image have been already read
-    signal pixel_read_count, pixel_read_count_next : integer range 0 to 255 := 0;
+    signal pixel_read_count, pixel_read_count_next : integer range 0 to 16386 := 0;
     -- Those flags tell whether the two dimensions of the image were already read or not
     signal got_column, got_row, got_column_next, got_row_next : boolean := false;
     -- "Flag signal" used to determine the next state when in RAM_SYNC
@@ -53,7 +53,7 @@ architecture Behavioral of project_reti_logiche is
     signal n_column, n_row, n_column_next, n_row_next : integer range 0 to 128 := 0;
     signal max_value, max_value_next : integer range 0 to 255 := 0;
     signal min_value, min_value_next : integer range 0 to 255 := 255;
-    signal out_begin, out_begin_next : integer range 0 to 255 := 0;
+    signal out_begin, out_begin_next : integer range 0 to 16386 := 0;
     signal shift_level, shift_level_next: integer range 0 to 255 := 0;
 
 begin
