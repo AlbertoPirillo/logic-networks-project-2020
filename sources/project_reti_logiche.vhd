@@ -15,7 +15,7 @@ use IEEE.STD_LOGIC_UNSIGNED.ALL;
 
 
 entity project_reti_logiche is
-    Port (
+    port (
         i_clk     : in std_logic;
         i_rst     : in std_logic;
         i_start   : in std_logic;
@@ -135,9 +135,17 @@ begin
         case curr_state is
             when IDLE =>
                 if(i_start = '1') then
-                    o_en_next <= '1';
-                    o_we_next <= '0';
-                    next_state <= ASK_DIM;
+                        -- Some signals need to be re-initialized for continous operation
+                        got_column_next <= false;
+                        got_row_next <= false;
+                        max_min_found_next <= false;
+                        max_value_next <= 0;
+                        min_value_next <= 255;
+                       
+                       -- Prepare to start operating
+                       o_en_next <= '1';
+                       o_we_next <= '0';
+                       next_state <= ASK_DIM;
                 end if;
 
             when ASK_DIM =>
