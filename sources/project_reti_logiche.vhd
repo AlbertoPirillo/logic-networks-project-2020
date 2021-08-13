@@ -41,8 +41,6 @@ architecture Behavioral of project_reti_logiche is
 
     -- curr_pixel stores the value of a pixel between READ_PIXEL and EQ_AND_WRITE
     signal curr_pixel, curr_pixel_next : integer range 0 to 255 := 0;
-    -- pixel_read_count stores how many pixel of the image have been already read
-    signal pixel_read_count, pixel_read_count_next : integer range 0 to 16386 := 0;
     -- Those flags tell whether the two dimensions of the image were already read or not
     signal got_column, got_row, got_column_next, got_row_next : boolean := false;
     -- "Flag signal" used to determine the next state when in RAM_SYNC
@@ -63,7 +61,6 @@ begin
         if (i_rst = '1') then
             -- Initialize the device
             curr_pixel <= 0;
-            pixel_read_count <= 0;
             got_column <= false;
             got_row <= false;
             max_min_found <= false;
@@ -87,7 +84,6 @@ begin
             o_address <= o_address_next;
             
             curr_pixel <= curr_pixel_next;
-            pixel_read_count <= pixel_read_count_next;
             got_column <= got_column_next;
             got_row <= got_row_next;
             max_min_found <= max_min_found_next;
@@ -105,7 +101,7 @@ begin
     end process;
 
 
-    process(curr_state, i_data, i_start, curr_pixel, pixel_read_count, got_column, got_row, max_min_found,
+    process(curr_state, i_data, i_start, curr_pixel, got_column, got_row, max_min_found,
             r_address, w_address, n_column, n_row, max_value, min_value, out_begin, shift_level)
         
         variable delta_value: integer range 0 to 255 := 0;
@@ -121,7 +117,6 @@ begin
         o_address_next <= "0000000000000000";
         
         curr_pixel_next <= curr_pixel;
-        pixel_read_count_next <= pixel_read_count;
         got_column_next <= got_column;
         got_row_next <= got_row;
         max_min_found_next <= max_min_found;
@@ -189,14 +184,13 @@ begin
 
             when SAVE_MAX_MIN =>
                 -- Update maximum and minimum value
-                if pixel_read_count < (out_begin - 2) then
+                if to_integer(unsigned(r_address)) < out_begin then
                     i_data_integer := conv_integer(i_data);
                     if i_data_integer < min_value then
                         min_value_next <= i_data_integer;
                     elsif i_data_integer > max_value then
                         max_value_next <= i_data_integer;
                     end if;
-                    pixel_read_count_next <= pixel_read_count + 1;
 
                     -- Keep reading sequentially
                     o_en_next <= '1';
@@ -206,7 +200,6 @@ begin
              
                 else 
                     -- MAX and MIN found
-                    pixel_read_count_next <= 0;
                     max_min_found_next <= true;
                     next_state <= COMPUTE_SHIFT;
                 end if;
@@ -243,9 +236,8 @@ begin
                 next_state <= RAM_SYNC;
 
             when READ_PIXEL =>
-                if pixel_read_count < (out_begin - 2) then
+                if to_integer(unsigned(r_address)) < out_begin then
                     curr_pixel_next <= to_integer(unsigned(i_data));
-                    pixel_read_count_next <= pixel_read_count + 1;
                     r_address_next <= r_address + 1;
 
                     -- Ask RAM to load the next pixel
