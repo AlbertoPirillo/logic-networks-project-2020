@@ -173,13 +173,14 @@ begin
                       
             
             when READ_DIM =>
+                i_data_integer := to_integer(unsigned(i_data));
                 if got_column = false then
-                    n_column_next <= conv_integer(i_data);
+                    n_column_next <= i_data_integer;
                     got_column_next <= true;
                     next_state <= ASK_DIM;
                 elsif got_row = false then
-                    n_row_next <= conv_integer(i_data);
-                    out_begin_next <= 2 + (n_column * conv_integer(i_data));
+                    n_row_next <= i_data_integer;
+                    out_begin_next <= 2 + (n_column * i_data_integer);
                     got_row_next <= true;
 
                     -- Prepare to read sequentially
@@ -192,11 +193,12 @@ begin
 
             when SAVE_MAX_MIN =>
                 -- Update maximum and minimum value
-                if to_integer(unsigned(r_address)) < out_begin then
-                    i_data_integer := conv_integer(i_data);
+                if to_integer(unsigned(r_address)) <= out_begin then
+                    i_data_integer := to_integer(unsigned(i_data));
                     if i_data_integer < min_value then
                         min_value_next <= i_data_integer;
-                    elsif i_data_integer > max_value then
+                    end if;
+                    if i_data_integer > max_value then
                         max_value_next <= i_data_integer;
                     end if;
 
@@ -254,6 +256,7 @@ begin
                     o_address_next <= r_address + 1;
                     next_state <= EQ_AND_WRITE;
                 else 
+                    -- Computation is over
                     o_we_next <= '0';
                     o_en_next <= '0';
                     o_done_next <= '1';
