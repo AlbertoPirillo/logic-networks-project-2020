@@ -200,13 +200,11 @@ begin
                     if i_data_integer > max_value then
                         max_value_next <= i_data_integer;
                     end if;
-
                     -- Keep reading sequentially
                     o_en_next <= '1';
                     o_we_next <= '0';
                     o_address_next <= r_address + 1;
                     r_address_next <= r_address + 1;          
-             
                 else 
                     -- MAX and MIN found
                     max_min_found_next <= true;
@@ -268,9 +266,9 @@ begin
                 
                 -- Select the minimum between 255 and temp_vector
                 if to_integer(unsigned(temp_vector)) <= 255 then
-                    o_data_next <= std_logic_vector(to_unsigned(to_integer(unsigned(temp_vector)), 8)); 
+                    o_data_next <= temp_vector(7 downto 0);
                 else
-                    o_data_next <= std_logic_vector(to_unsigned(255, 8));
+                    o_data_next <= "11111111";
                 end if;
                 w_address_next <= w_address + 1;
 
