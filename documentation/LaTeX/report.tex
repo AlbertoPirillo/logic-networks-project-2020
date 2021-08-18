@@ -8,9 +8,11 @@
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{listings}
+\usepackage{parskip}
+\usepackage{wrapfig}
 
 % Custom margins
-\usepackage[a4paper, inner=1.0cm, outer=2.7cm, top=3cm, bottom=3cm, bindingoffset=1.2cm]{geometry}
+\usepackage[a4paper, inner=1cm, outer=2.7cm, top=3cm, bottom=3cm, bindingoffset=1.2cm]{geometry}
 
 % List spacing
 \usepackage{enumitem}
@@ -20,8 +22,9 @@
 \usepackage{fancyhdr}
 \pagestyle{fancy}
 \fancyhf{}
-\lhead{Prova finale - Reti Logiche}
+\lhead{Prova finale - Reti Logiche - A.A. 2020/2021}
 \rhead{Alberto Pirillo}
+\renewcommand{\footrulewidth}{0.4pt}
 \cfoot{\thepage}
 
 % Title 
@@ -49,7 +52,7 @@ Lo scopo del progetto è quello di descrivere in VDHL e sintetizzare un componen
 \subsection{Specifiche generali}
 L'obiettivo del metodo di equalizzazione dell'istogramma di un'immagine è quello di ricalibrare il contrasto di un'immagine quando l'intervallo dei valori di intensità sono molto vicini, al fine da incrementare il contrasto. Viene applicata una versione semplificata dell'algoritmo, descritta di seguito.
 
-\bigskip\noindent\footnotesize
+\bigskip\footnotesize
 $DELTA\_VALUE = MAX\_PIXEL\_VALUE - MIN\_PIXEL\_VALUE$ \\
 $SHIFT\_LEVEL = (8-FLOOR(LOG_2(DELTA\_VALUE + 1)))$ \\
 $TEMP\_PIXEL = (CURRENT\_PIXEL\_VALUE - MIN\_PIXEL\_VALUE) \ll SHIFT\_LEVEL$ \\
@@ -63,11 +66,11 @@ $NEW\_PIXEL\_VALUE = MIN(255, TEMP\_PIXEL)$
     \item NEW\_PIXEL\_VALUE è il valore del pixel equalizzato
 \end{itemize}
 
-\bigskip\noindent
+\bigskip
 Ogni immagine è in scala di grigi e ha una dimensione compresa tra 1x1 e 128x128 pixel. Ogni pixel può assumere un valore compreso tra 0 e 255. \\
-Il componente è in grado anche di gestire un'immagine "nulla", ossia di dimensione 0x0.
+Il dispositivo è in grado anche di gestire un'immagine "nulla", ossia con una o entrambe le dimensioni formate da 0 pixel.
 \\\\
-L'immagine è memorizzata in modo contiguo in memoria e il componente da implementare dovrà leggerla sequenzialmente e riga per riga. L'immagine deve essere scritta in memoria immediatamente dopo l'immagine originale.
+L'immagine è memorizzata in modo contiguo in memoria e il dispositivo da implementare dovrà leggerla sequenzialmente e riga per riga. L'immagine deve essere scritta in memoria immediatamente dopo l'immagine originale.
 
 \subsection{Struttura della memoria}
 L'immagine è memorizzata in una memoria con indirizzamento al byte partendo dalla posizione 0.
@@ -82,7 +85,7 @@ Inoltre, ogni pixel dell'immagine è memorizzato con codifica binaria su 8 bit s
 
 \begin{figure}[h]
     \centering
-    \includegraphics[scale=0.90]{memory_scheme.png}
+    \includegraphics[scale=0.90]{introduzione/memory_scheme.png}
     \caption{Schema del contenuto delle celle di memoria, con i rispettivi indirizzi}
     \label{fig:memory_scheme}
 \end{figure}
@@ -91,7 +94,7 @@ Inoltre, ogni pixel dell'immagine è memorizzato con codifica binaria su 8 bit s
 \subsection{Funzionamento della memoria}
 La memoria utilizzata consiste in una Single-Port Block RAM Write-First-Mode.
 
-\bigskip\noindent
+\bigskip
 La sua interfaccia è la seguente:
 \begin{lstlisting}[language=VHDL]
 entity rams_sp_wf is
@@ -106,17 +109,17 @@ entity rams_sp_wf is
 end rams_sp_wf;
 \end{lstlisting}
 
-\bigskip\noindent
+\bigskip
 In breve, il funzionamento della memoria richiede che \textbf{en} = 1 per effettuare qualunque operazione (sia lettura che scrittura). 
 
-\bigskip\noindent
+\bigskip
 A ogni ciclo di clock, viene letto il valore di \textbf{addr}:
 \begin{itemize}
     \item se \textbf{we} = 1: viene copiato \textbf{di} nella cella di memoria con indirizzo corrispondente al valore di \textbf{addr}
     \item se \textbf{we} = 0: viene copiato in do il valore contenuto nella cella di memoria con indirizzo corrispondente al valore di \textbf{addr}
 \end{itemize}
 
-\bigskip\noindent
+\bigskip
 In entrambi i casi, tali valori sono disponibili al ciclo di clock successivo.
 
 
@@ -168,23 +171,35 @@ Notare che, poiché il raggiungimento della massima efficienza non era esplicita
 Mantenere in memoria il minor numero di informazioni possibili: ad esempio, soltanto il valore del pixel che sta venendo processato viene salvato.
 
 \subsubsection{Cicli di clock}
-Come descritto in precedenza, la memoria rende disponibile il dato richiesto al ciclo di clock successivo. Con l'obiettivo di ridurre al minimo i cicli di clock passati in attesa, quando è necessario un dato la rispettiva richiesta viene, con l'eccezione della lettura di N\_COLUMN e N\_ROW, fatta nello stato precedente.
+Come descritto in precedenza, la memoria rende disponibile il dato richiesto al ciclo di clock successivo. Con l'obiettivo di ridurre al minimo i cicli di clock passati in attesa, quando è necessario un dato la rispettiva richiesta viene, con l'eccezione della lettura di N\_COL e N\_ROW, fatta nello stato precedente.
 
 \subsubsection{Numero di stati} 
 Ridurre il più possibile il numero degli stati. In particolare, nelle prime fasi del progetto erano stati previsti più stati per attendere che la memoria rendesse disponibile il dato richiesto. Tali stati sono infine stati collassati nell'unico stato RAM\_SYNC.
 
 
-\bigskip
+\pagebreak
+\cfoot{\thepage}
 \subsection{Descrizione degli stati}
 La FSM è composta da 9 stati, come mostrato nel diagramma seguente.
-% Immagine diagramma
+
+\bigskip
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=0.149]{architettura/FSM diagram.png}
+    \caption{Diagramma degli stati del dispositivo}
+    \label{fig:fsm_diagram}
+\end{figure}
+
+
+\pagebreak
 Di seguito è riportata una breve descrizione di ogni stato:
 
 \subsubsection{IDLE}
 Stato iniziale, in cui si attende il segnale di START. \\
+Non appena tale segnale è ricevuto, parte del dispositivo viene reinizializzata in modo da permettere di processare più immagini senza un segnale di RESET. \\
 Inoltre si ritorna a questo stato quando viene ricevuto il segnale di RESET.
 \subsubsection{ASK\_DIM}
-Stato in cui viene richiesto alla memoria il numero di colonne dell'immagine (N\_COLUMN), oppure il numero di righe (N\_ROW) in caso in quest'ultimo sia già stato salvato.
+Stato in cui viene richiesto alla memoria il numero di colonne dell'immagine (N\_COL), oppure il numero di righe (N\_ROW) in caso in quest'ultimo sia già stato salvato.
 \subsubsection{RAM\_SYNC}
 In questo stato sono condensate tutte le possibili situazioni di attesa in seguito alla richiesta di un dato alla memoria. \\
 Inoltre, esso è in grado di richiedere un dato alla memoria, in modo da minimizzare i cicli di clock passati in attesa.
@@ -211,27 +226,89 @@ Stato finale, in cui si attende che il segnale START venga abbassato, per poi to
 \section{Risultati sperimentali}
 \subsection{Report di sintesi}
 
+%%%%%%%%%%%%
+\vspace{5cm}
+%%%%%%%%%%%%
+
 \subsection{Simulazioni}
+I seguenti test sono stati eseguiti sia in pre-sintesi (Behavioral Simulation) che in post-sintesi (Post-Synthesis Functional Simulation).\\
+Tutti i test sono stati superati in entrambi i casi, tuttavia per maggiore chiarezza gli screenshot mostrati in questa sezione provengono solo da simulazioni pre-sintesi.
 
-\subsubsection{Casi limite}
-Per prima cosa sono stati testati i casi limite, usando degli appositi TestBench.
+\subsubsection{Test con analisi dettagliata}
+Per rendere più chiaro il funzionamento del dispositivo, di seguito è riportata un'analisi step-by-step di una simulazione, per brevità con in input un immagine di dimensione 2x2.
+
+\subsubsection*{START e lettura dimensioni}
+\begin{figure}[h]
+    \centering
+    \includegraphics[trim=0cm 1.25cm 0cm 0.25cm, width=1.0\textwidth]{simulazioni/2x2_SRD.png}
+    \label{fig:2x2_SRD}
+\end{figure}
+Come evidenziato dallo screenshot, non appena viene ricevuto START = 1, il dispositivo passa allo stato ASK\_DIM e richiede alla memoria il byte all'indirizzo 0, ossia la dimensione delle colonne. 
+Dopo aver atteso un ciclo di clock per assicurarsi della stabilità del valore presente in memoria (stato RAM\_SYNC), il dato richiesto è letto e salvato nello stato READ\_DIM. \\
+In seguito si ripete tale procedimento per il byte all'indirizzo 1, ossia la dimensione delle righe.
+Subito dopo la lettura di tale valore è calcolato il valore di OUT\_BEGIN. 
+Infine il dispositivo si porta nuovamente nello stato RAM\_SYNC, settando O\_ADDRESS = 2 per segnalare alla memoria di voler iniziare la lettura dei pixel dell'immagine
+
+\subsubsection*{Calcolo MAX, MIN e SHIFT\_LEVEL}
+\begin{figure}[h]
+    \centering
+    \includegraphics[trim=0cm 1.25cm 0cm 0.25cm, width=1\textwidth]{simulazioni/2x2_MMSL.png}
+    \label{fig:2x2_MMSL}
+\end{figure}
+In questa fase l'immagine è letta sequenzialmente, un pixel per ogni ciclo di clock. \\
+Lo screenshot mostra chiaramente come, nello stato SAVE\_MAX\_MIN, MAX\_VALUE e MIN\_VALUE siano aggiornati o meno in base alla lettura del pixel corrente. Si passa allo stato seguente  quando il valore di O\_ADDRESS diventa maggiore del valore di OUT\_BEGIN. In questo stato (COMPUTE\_SHIFT) viene calcolato SHIFT\_LEVEL. \\
+Anche in questo caso il dispositivo si riporta poi nello stato RAM\_SYNC, segnalando di necessitare di un'altra lettura dell'immagine per equalizzarla.
+
+\subsubsection*{Equalizzazione, write e DONE}
+\begin{figure}[h]
+    \centering
+    \includegraphics[trim=0cm 1.25cm 0cm 0.25cm, width=1\textwidth]{simulazioni/2x2_EWD.png}
+    \label{fig:2x2_EWD}
+\end{figure}
+In questa fase avviene, sequenzialmente e pixel per pixel, la lettura del valore di un pixel e la scrittura del suo corrispondente valore equalizzato. \\
+Nello stato READ\_PIXEL viene letto il valore del pixel originale e salvato temporaneamente in CURR\_PIXEL. Nello stato EQ\_AND\_WRITE si esegue l'equalizzazione partendo da tale valore e in seguito si richiede alla memoria la scrittura del valore equalizzato nel rispettivo indirizzo. \\
+Gli stati READ\_PIXEL e EQ\_AND\_WRITE si alternano fino a quando la lettura in READ\_PIXEL non arriva al valore di OUT\_BEGIN: in tal caso l'algoritmo è terminato e il dispositivo passa allo stato DONE, portando il segnale \textbf{o\_done} a 1. \\
+Infine il dispositivo torna allo stato IDLE, pronto per ricevere un altro segnale di START.
+
+\bigskip
+\subsubsection{Test dei casi limite}
+Per prima cosa sono stati testati i casi limite, usando degli appositi TestBench.\\
 Ne sono stati individuati 5:
-\begin{itemize}
-    \item Immagine di dimensione 0x0
-    \item Immagine di dimensione 1x1
-    \item Immagine di dimensione 255x255
-    \item Immagine con tutti i pixel a 0
-    \item Immagine con tutti i pixel a 255
-\end{itemize}
+\paragraph*{Immagine di dimensione 0x0:}
+poiché non è presente alcuna immagine in memoria, come previsto l'esecuzione termina senza processare alcun pixel e senza modificare in alcun modo la memoria.
+\paragraph*{Immagine di dimensione 1x1:}
+poiché vi è un unico pixel, a prescindere dal suo valore avremo CURRENT\_PIXEL\_VALUE - MIN\_PIXEL\_VALUE = 0, che forza tutti i pixel in uscita al valore 0. Di conseguenza l'esecuzione termina eseguendo una sola scrittura all'indirizzo 3 della memoria, come previsto.
+\paragraph*{Immagine di dimensione 128x128:}
+la simulazione termina correttamente, modificando la memoria nel modo previsto.\\
+Questo TestBench permette di assicurarsi dell'assenza di problemi dovuti a un errato dimensionamento di segnali e/o variabili, e dunque di registri in post-sintesi.
+\paragraph*{Immagine con tutti i pixel a 0:}
+poiché tutti i pixel hanno lo stesso valore, si verifica nuovamente che CURRENT\_PIXEL\_VALUE - MIN\_PIXEL\_VALUE = 0. Il dispositivo termina l'esecuzione scrivendo in memoria soltanto pixel dal valore 0.
+\paragraph{Immagine con tutti i pixel a 255:}
+come nel caso precedente, sempre perché tutti i pixel hanno lo stesso valore. 
 
-\subsubsection{Risposta ai segnali RESET e START}
+\subsubsection{Immagini in sequenza con RESET}
+\begin{figure}[h]
+    \centering
+    \includegraphics[trim=0cm 1.25cm 0cm 0.25cm, width=1.0\textwidth]{simulazioni/GEN_RESET.png}
+    \label{fig:gen_reset}
+\end{figure}
+In questo test è richiesto al dispositivo di processare più immagini in sequenza (in questo caso 3) e tra ogni immagine e la successiva viene nuovamente inviato il segnale di RESET. \\
+Il test evidenzia come il RESET del dispositivo funzioni correttamente, in quanto ogni computazione termina correttamente. Inoltre, dallo screenshot è possibile osservare come il segnale di RESET causi la reinizializzazione dei segnali (come \textbf{n\_col}, \textbf{ n\_row} e \textbf{out\_begin}). \\
+Da notare che sono stati eseguiti altri test sulla falsa riga di quest'ultimo, con più immagini e di dimensioni maggiori.
+
+\subsubsection{Immagini in sequenza senza RESET}
+\begin{figure}[h]
+    \centering
+    \includegraphics[trim=0cm 1.25cm 0cm 0.25cm, width=1.0\textwidth]{simulazioni/GEN_NO_RESET.png}
+    \label{fig:gen_no_reset}
+\end{figure}
+L'unica differenza tra questo test e il precedente è appunto l'utilizzo del segnale di  RESET: in questo caso viene inviato solo a inizio simulazione e non anche tra un'immagine e la successiva. \\
+Anche in questo caso tutte le simulazioni terminano correttamente, in quanto una nuova ricezione del segnale di START causa la reinizializzazione parziale del dispositivo. \\
+Questo test evidenzia la correttezza della relazione tra i segnali i\_start e o\_done: come richiesto da specifica, il segnale DONE è portato ad alto solo dopo la fine dell'elaborazione e rimane alto fino a che il segnale di START non è riportato a 0.
 
 \subsubsection{Test generici}
-Infine ci si è voluti assicurare del corretto comportamento del componente utilizzando immagini con dimensioni e pixel qualsiasi.
+Infine ci si è voluti assicurare del corretto comportamento del dispositivo mediante altri numerosi test che non vanno a verificare casi particolari ma utilizzano dati qualsiasi, il più possibile differenziati.
 
-\subsubsection{Pre-sintesi}
-
-\subsubsection{Post-sintesi}
 
 \newpage
 \section{Conclusioni}
