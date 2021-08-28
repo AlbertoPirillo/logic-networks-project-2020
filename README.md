@@ -7,7 +7,7 @@ The goal of the project is to use VHDL language to implement and synthesize an H
 ## Resources
 - Source code is available [here](sources/project_reti_logiche.vhd)
 - A state diagram of the component is available [here](documentation/FSM%20Diagram.pdf)
-- A detailed report is available [here](documentation/report.pdf)
+- A detailed report is available [here](documentation/Report.pdf)
 
 ## Software
 - [Xilinx Vivado Design Suite](https://www.xilinx.com/products/design-tools/vivado.html)

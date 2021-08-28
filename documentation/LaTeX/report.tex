@@ -10,9 +10,10 @@
 \usepackage{listings}
 \usepackage{parskip}
 \usepackage{wrapfig}
+\usepackage{tabu}
 
 % Custom margins
-\usepackage[a4paper, inner=1cm, outer=2.7cm, top=3cm, bottom=3cm, bindingoffset=1.2cm]{geometry}
+\usepackage[a4paper, inner=1cm, outer=2.7cm, top=1.1cm, bottom=3cm, bindingoffset=1.2cm]{geometry}
 
 % List spacing
 \usepackage{enumitem}
@@ -22,27 +23,26 @@
 \usepackage{fancyhdr}
 \pagestyle{fancy}
 \fancyhf{}
-\lhead{Prova finale - Reti Logiche - A.A. 2020/2021}
+\lhead{Prova Finale - Reti Logiche - A.A. 2020/2021}
 \rhead{Alberto Pirillo}
 \renewcommand{\footrulewidth}{0.4pt}
 \cfoot{\thepage}
 
 % Title 
-\title{\Huge{Prova finale - Reti Logiche}}
+\title{\Huge{Prova Finale - Reti Logiche}}
 \author{\Large{Alberto Pirillo - 10667220} \\ \Large{Prof. Gianluca Palermo}}
 \date{Anno Accademico 2020/2021}
 
 \makeindex
-
 \begin{document}
-
 \maketitle
 \tableofcontents
+\newgeometry{inner=1cm, outer=2.7cm, top=3cm, bottom=3cm, bindingoffset=1.2cm}
 \pagebreak
 
 \section{Introduzione}
 \subsection{Scopo del progetto}
-Lo scopo del progetto è quello di descrivere in VDHL e sintetizzare un componente HW in grado di:
+Lo scopo del progetto è quello di utilizzare il tool \textit{Xilinx Vivado WebPack} per  descrivere in VHDL e sintetizzare un componente HW in grado di:
 \begin{itemize}
     \item Leggere un'immagine interfacciandosi con una memoria
     \item Processare l'immagine con un algoritmo di equalizzazione dell'istogramma
@@ -50,7 +50,7 @@ Lo scopo del progetto è quello di descrivere in VDHL e sintetizzare un componen
 \end{itemize}
 
 \subsection{Specifiche generali}
-L'obiettivo del metodo di equalizzazione dell'istogramma di un'immagine è quello di ricalibrare il contrasto di un'immagine quando l'intervallo dei valori di intensità sono molto vicini, al fine da incrementare il contrasto. Viene applicata una versione semplificata dell'algoritmo, descritta di seguito.
+L'obiettivo del metodo di equalizzazione dell'istogramma di un'immagine è quello di ricalibrare il contrasto di un'immagine quando l'intervallo dei valori di intensità è molto ridotto, in modo da incrementare il contrasto. Viene applicata una versione semplificata dell'algoritmo, descritta di seguito.
 
 \bigskip\footnotesize
 $DELTA\_VALUE = MAX\_PIXEL\_VALUE - MIN\_PIXEL\_VALUE$ \\
@@ -70,12 +70,13 @@ $NEW\_PIXEL\_VALUE = MIN(255, TEMP\_PIXEL)$
 Ogni immagine è in scala di grigi e ha una dimensione compresa tra 1x1 e 128x128 pixel. Ogni pixel può assumere un valore compreso tra 0 e 255. \\
 Il dispositivo è in grado anche di gestire un'immagine "nulla", ossia con una o entrambe le dimensioni formate da 0 pixel.
 \\\\
-L'immagine è memorizzata in modo contiguo in memoria e il dispositivo da implementare dovrà leggerla sequenzialmente e riga per riga. L'immagine deve essere scritta in memoria immediatamente dopo l'immagine originale.
+L'immagine è memorizzata in modo contiguo in memoria e il dispositivo da implementare dovrà leggerla sequenzialmente e riga per riga. L'immagine equalizzata deve essere scritta in memoria nella posizione immediatamente successiva a quella occupata dall'originale.
 
 \subsection{Struttura della memoria}
 L'immagine è memorizzata in una memoria con indirizzamento al byte partendo dalla posizione 0.
-Si assume che tale memoria sia già instaziata e dunque non debba essere sintetizzata.
+Si assume che tale memoria sia già instanziata e dunque non debba essere sintetizzata.
 Inoltre, ogni pixel dell'immagine è memorizzato con codifica binaria su 8 bit senza segno.
+\bigskip
 \begin{itemize}
     \item Il byte in posizione 0 si riferisce al numero di colonne dell'immagine
     \item Il byte in posizione 1 si riferisce al numero di righe dell'immagine
@@ -94,7 +95,6 @@ Inoltre, ogni pixel dell'immagine è memorizzato con codifica binaria su 8 bit s
 \subsection{Funzionamento della memoria}
 La memoria utilizzata consiste in una Single-Port Block RAM Write-First-Mode.
 
-\bigskip
 La sua interfaccia è la seguente:
 \begin{lstlisting}[language=VHDL]
 entity rams_sp_wf is
@@ -112,11 +112,11 @@ end rams_sp_wf;
 \bigskip
 In breve, il funzionamento della memoria richiede che \textbf{en} = 1 per effettuare qualunque operazione (sia lettura che scrittura). 
 
-\bigskip
-A ogni ciclo di clock, viene letto il valore di \textbf{addr}:
+Inoltre, a ogni ciclo di clock, viene letto il valore di \textbf{addr}:
+
 \begin{itemize}
     \item se \textbf{we} = 1: viene copiato \textbf{di} nella cella di memoria con indirizzo corrispondente al valore di \textbf{addr}
-    \item se \textbf{we} = 0: viene copiato in do il valore contenuto nella cella di memoria con indirizzo corrispondente al valore di \textbf{addr}
+    \item se \textbf{we} = 0: viene copiato in \textbf{do} il valore contenuto nella cella di memoria con indirizzo corrispondente al valore di \textbf{addr}
 \end{itemize}
 
 \bigskip
@@ -145,15 +145,15 @@ end project_reti_logiche;
 \end{lstlisting}
 
 \begin{itemize}
-    \item i\_clk: segnale di CLOCK in ingresso generato dal TestBench
-    \item i\_rst: segnale di RESET che inizializza la macchina, in modo che sia pronta per ricevere il primo segnale di START
-    \item i\_start: segnale di START generato dal TestBench
-    \item i\_data: segnale (vettore) che arriva dalla memoria in seguito a una richiesta di lettura
-    \item o\_address: segnale (vettore) di uscita che determina l’indirizzo della memoria su cui effettuare un'operazione
-    \item o\_done: segnale di uscita che comunica la fine dell’elaborazione e la completa scrittura del dato in memoria
-    \item o\_en: segnale di ENABLE richiesto dalla memoria per poter comunicare, sia in lettura che in scrittura
-    \item o\_we: segnale di WRITE ENABLE che deve essere LOW per leggere da memoria e HIGH per scrivere in memoria
-    \item o\_data: segnale (vettore) di uscita dal componente verso la memoria
+    \item \textbf{i\_clk:} segnale di CLOCK in ingresso generato dal TestBench
+    \item \textbf{i\_rst:} segnale di RESET che inizializza la macchina, in modo che sia pronta per ricevere il primo segnale di START
+    \item \textbf{i\_start:} segnale di START generato dal TestBench
+    \item \textbf{i\_data:} segnale (vettore) che arriva dalla memoria in seguito a una richiesta di lettura
+    \item \textbf{o\_address:} segnale (vettore) di uscita che determina l’indirizzo della memoria su cui effettuare un'operazione
+    \item \textbf{o\_done:} segnale di uscita che comunica la fine dell’elaborazione e la completa scrittura del dato in memoria
+    \item \textbf{o\_en:} segnale di ENABLE richiesto dalla memoria per poter comunicare, sia in lettura che in scrittura
+    \item \textbf{o\_we:} segnale di WRITE ENABLE che deve essere LOW per leggere da memoria e HIGH per scrivere in memoria
+    \item \textbf{o\_data:} segnale (vettore) di uscita dal componente verso la memoria
 \end{itemize}
 
 \subsection{Scelte progettuali}
@@ -165,41 +165,41 @@ Il componente è descritto da due processi:
 
 \subsection{Obiettivi}
 Di seguito sono illustrati i principi seguiti durante la progettazione. \\
-Notare che, poiché il raggiungimento della massima efficienza non era esplicitamente richiesto, tali principi sono in alcuni caso passati in secondo piano in modo da non compromettere leggibilità e chiarezza sia del codice sorgente che del diagramma degli stati.
+Notare che, poiché il raggiungimento della massima efficienza non era esplicitamente richiesto, tali principi sono in alcuni casi passati in secondo piano in modo da non compromettere leggibilità e chiarezza sia del codice sorgente che del diagramma degli stati.
 
 \subsubsection{Memoria}
 Mantenere in memoria il minor numero di informazioni possibili: ad esempio, soltanto il valore del pixel che sta venendo processato viene salvato.
 
 \subsubsection{Cicli di clock}
-Come descritto in precedenza, la memoria rende disponibile il dato richiesto al ciclo di clock successivo. Con l'obiettivo di ridurre al minimo i cicli di clock passati in attesa, quando è necessario un dato la rispettiva richiesta viene, con l'eccezione della lettura di N\_COL e N\_ROW, fatta nello stato precedente.
+Come descritto in precedenza, la memoria rende disponibile il dato richiesto al ciclo di clock successivo. Con l'obiettivo di ridurre al minimo i cicli di clock passati in attesa, quando è necessario un dato la rispettiva richiesta viene fatta nello stato precedente. Le uniche eccezioni sono la lettura di N\_COL e N\_ROW, separate in più stati per una maggiore chiarezza.
 
-\subsubsection{Numero di stati} 
+\subsubsection{Numero di stati}
 Ridurre il più possibile il numero degli stati. In particolare, nelle prime fasi del progetto erano stati previsti più stati per attendere che la memoria rendesse disponibile il dato richiesto. Tali stati sono infine stati collassati nell'unico stato RAM\_SYNC.
 
 
 \pagebreak
-\cfoot{\thepage}
-\subsection{Descrizione degli stati}
+\subsection{Diagramma degli stati}
 La FSM è composta da 9 stati, come mostrato nel diagramma seguente.
 
 \bigskip
 \begin{figure}[h]
     \centering
-    \includegraphics[scale=0.149]{architettura/FSM diagram.png}
+    \includegraphics[scale=0.150]{architettura/FSM diagram.png}
     \caption{Diagramma degli stati del dispositivo}
     \label{fig:fsm_diagram}
 \end{figure}
 
 
 \pagebreak
-Di seguito è riportata una breve descrizione di ogni stato:
+\subsection{Descrizione degli stati}
+Di seguito è riportata una breve descrizione di ogni stato.
 
 \subsubsection{IDLE}
 Stato iniziale, in cui si attende il segnale di START. \\
 Non appena tale segnale è ricevuto, parte del dispositivo viene reinizializzata in modo da permettere di processare più immagini senza un segnale di RESET. \\
 Inoltre si ritorna a questo stato quando viene ricevuto il segnale di RESET.
 \subsubsection{ASK\_DIM}
-Stato in cui viene richiesto alla memoria il numero di colonne dell'immagine (N\_COL), oppure il numero di righe (N\_ROW) in caso in quest'ultimo sia già stato salvato.
+Stato in cui viene richiesto alla memoria il numero di colonne dell'immagine (N\_COL), oppure il numero di righe (N\_ROW) in caso quest'ultimo sia già stato salvato.
 \subsubsection{RAM\_SYNC}
 In questo stato sono condensate tutte le possibili situazioni di attesa in seguito alla richiesta di un dato alla memoria. \\
 Inoltre, esso è in grado di richiedere un dato alla memoria, in modo da minimizzare i cicli di clock passati in attesa.
@@ -218,26 +218,55 @@ La lettura dell'immagine procede fino a quando l'indirizzo di lettura non corris
 \subsubsection{EQ\_AND\_WRITE}
 In questo stato viene eseguita la seconda parte dell'algoritmo di equalizzazione, ossia quella che dipende da CURRENT\_PIXEL. \\
 Vengono calcolati TEMP\_PIXEL e NEW\_PIXEL.
-Infine viene richiesta alla memoria la scrittura di NEW\_PIXEl al ciclo di clock successivo.
+Infine viene richiesta alla memoria la scrittura di NEW\_PIXEL al ciclo di clock successivo.
 \subsubsection{DONE}
 Stato finale, in cui si attende che il segnale START venga abbassato, per poi tornare nello stato IDLE. 
 
 \newpage
 \section{Risultati sperimentali}
 \subsection{Report di sintesi}
+Tool di sintesi: Vivado WebPack 2021.1 \\
+FPGA target: Artix-7 xc7a200tfbg484-1 
 
-%%%%%%%%%%%%
-\vspace{5cm}
-%%%%%%%%%%%%
+Di seguito sono riportati gli elementi più significativi del report di utilizzo di Vivado:
+
+\begin{table}[h]
+    \centering
+    \begin{tabu*} to 1.0\textwidth { |X[1c]|X[0.6c]|X[0.6c]|X[0.6c]|}\hline
+        \rule[3ex]{0pt}{0.5ex} \textbf{Componente} & \textbf{Usati} & \textbf{Disponibili} & \textbf{\% Utilizzo}\\\hline
+        \rule[3ex]{0pt}{0.5ex} LUT as Logic & 204 & 134600 & 0.15 \\\hline
+        \rule[3ex]{0pt}{0.5ex} LUT as Memory & 0 & 46200 & 0.00 \\\hline
+        \rule[3ex]{0pt}{0.5ex} Register as Flip Flop & 118 & 269200 & 0.04 \\\hline
+        \rule[3ex]{0pt}{0.5ex} Register as Latch & 0 & 269200 & 0.00 \\\hline
+        \rule[3ex]{0pt}{0.5ex} F7 Muxes  & 1 & 67300 & \verb|<|0.01 \\\hline
+        \rule[3ex]{0pt}{0.5ex} F8 Muxes  & 0 & 33650 & 0.00 \\\hline
+        \rule[3ex]{0pt}{0.5ex} I/O Buffer & 38 & 285 & 13.33 \\\hline
+    \end{tabu*}
+\end{table}
+
+Di seguito sono riportati altri valori significativi estratti dal report generale:
+
+\begin{table}[h]
+    \centering
+    \begin{tabu*} to 1.0\textwidth { |X[1c]|X[0.6c]|X[2c]|}\hline
+        \rule[3ex]{0pt}{0.5ex} \textbf{Descrizione} & \textbf{Valore} & \textbf{Note} \\\hline
+        \rule[3ex]{0pt}{0.5ex} Data Path Delay &  8.157 ns & Logic=4.184 ns, Route=3.973 ns \\\hline
+        \rule[3ex]{0pt}{0.5ex} Total On-Chip Power & 5.039 W & Dynamic=4.885 W, Device Static=0.154 W  \\\hline
+        \rule[3ex]{0pt}{0.5ex} Livelli logici & 11 & \footnotesize{CARRY4=6, IBUF=1, LUT2=1, LUT4=1, LUT6=2} \\\hline
+        \rule[3ex]{0pt}{0.5ex} Schematic Nets & 659 &  \\\hline
+        \rule[3ex]{0pt}{0.5ex} Schematic Cells & 470 &  \\\hline
+    \end{tabu*}
+\end{table}
 
 \subsection{Simulazioni}
 I seguenti test sono stati eseguiti sia in pre-sintesi (Behavioral Simulation) che in post-sintesi (Post-Synthesis Functional Simulation).\\
-Tutti i test sono stati superati in entrambi i casi, tuttavia per maggiore chiarezza gli screenshot mostrati in questa sezione provengono solo da simulazioni pre-sintesi.
+Tutti i test sono stati superati in entrambi i casi, tuttavia per maggiore chiarezza gli screenshot mostrati in questa sezione provengono tutti da simulazioni pre-sintesi.
 
 \subsubsection{Test con analisi dettagliata}
-Per rendere più chiaro il funzionamento del dispositivo, di seguito è riportata un'analisi step-by-step di una simulazione, per brevità con in input un immagine di dimensione 2x2.
+Per rendere più chiaro il funzionamento del dispositivo, di seguito è riportata l'analisi step-by-step di una simulazione, per brevità con in input un'immagine di dimensione 2x2.
 
 \subsubsection*{START e lettura dimensioni}
+
 \begin{figure}[h]
     \centering
     \includegraphics[trim=0cm 1.25cm 0cm 0.25cm, width=1.0\textwidth]{simulazioni/2x2_SRD.png}
@@ -259,6 +288,7 @@ In questa fase l'immagine è letta sequenzialmente, un pixel per ogni ciclo di c
 Lo screenshot mostra chiaramente come, nello stato SAVE\_MAX\_MIN, MAX\_VALUE e MIN\_VALUE siano aggiornati o meno in base alla lettura del pixel corrente. Si passa allo stato seguente  quando il valore di O\_ADDRESS diventa maggiore del valore di OUT\_BEGIN. In questo stato (COMPUTE\_SHIFT) viene calcolato SHIFT\_LEVEL. \\
 Anche in questo caso il dispositivo si riporta poi nello stato RAM\_SYNC, segnalando di necessitare di un'altra lettura dell'immagine per equalizzarla.
 
+\vspace{3cm}
 \subsubsection*{Equalizzazione, write e DONE}
 \begin{figure}[h]
     \centering
@@ -283,7 +313,7 @@ la simulazione termina correttamente, modificando la memoria nel modo previsto.\
 Questo TestBench permette di assicurarsi dell'assenza di problemi dovuti a un errato dimensionamento di segnali e/o variabili, e dunque di registri in post-sintesi.
 \paragraph*{Immagine con tutti i pixel a 0:}
 poiché tutti i pixel hanno lo stesso valore, si verifica nuovamente che CURRENT\_PIXEL\_VALUE - MIN\_PIXEL\_VALUE = 0. Il dispositivo termina l'esecuzione scrivendo in memoria soltanto pixel dal valore 0.
-\paragraph{Immagine con tutti i pixel a 255:}
+\paragraph*{Immagine con tutti i pixel a 255:}
 come nel caso precedente, sempre perché tutti i pixel hanno lo stesso valore. 
 
 \subsubsection{Immagini in sequenza con RESET}
@@ -303,14 +333,20 @@ Da notare che sono stati eseguiti altri test sulla falsa riga di quest'ultimo, c
     \label{fig:gen_no_reset}
 \end{figure}
 L'unica differenza tra questo test e il precedente è appunto l'utilizzo del segnale di  RESET: in questo caso viene inviato solo a inizio simulazione e non anche tra un'immagine e la successiva. \\
-Anche in questo caso tutte le simulazioni terminano correttamente, in quanto una nuova ricezione del segnale di START causa la reinizializzazione parziale del dispositivo. \\
+Anche in questo caso tutte le simulazioni terminano correttamente, in quanto una nuova ricezione del segnale di START causa una reinizializzazione parziale del dispositivo. \\
 Questo test evidenzia la correttezza della relazione tra i segnali i\_start e o\_done: come richiesto da specifica, il segnale DONE è portato ad alto solo dopo la fine dell'elaborazione e rimane alto fino a che il segnale di START non è riportato a 0.
 
 \subsubsection{Test generici}
-Infine ci si è voluti assicurare del corretto comportamento del dispositivo mediante altri numerosi test che non vanno a verificare casi particolari ma utilizzano dati qualsiasi, il più possibile differenziati.
-
+Infine ci si è voluti assicurare del corretto comportamento del dispositivo mediante altri numerosi test che non vanno a verificare casi particolari ma utilizzano dati qualsiasi il più possibile differenziati. Tali test, qui non riportati per brevità, terminano tutti fornendo il risultato atteso.
 
 \newpage
 \section{Conclusioni}
-
+In base al report di sintesi e ai risultati delle simulazioni, si può affermare che il componente progettato:
+\begin{itemize}
+    \item Rispetta la specifica
+    \item Funziona correttamente in pre-sintesi
+    \item Risulta correttamente sintetizzabile
+    \item Funziona correttamente in post-sintesi
+\end{itemize}
+Inoltre, sono stati raggiunti gli obiettivi prefissati, ottenendo un numero di stati ridotto e garantendo una gestione efficiente della memoria senza compromettere la leggibilità e la chiarezza di codice sorgente e diagramma degli stati.
 \end{document}
