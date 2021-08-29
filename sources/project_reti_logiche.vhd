@@ -56,7 +56,7 @@ architecture Behavioral of project_reti_logiche is
 
 begin
     -- This process implements the registry part
-    -- Resets the device is needed, otherwise just updates the signlas
+    -- Resets the device is needed, otherwise just updates the registries
     process (i_clk, i_rst)
     begin
         if (i_rst = '1') then
@@ -76,7 +76,7 @@ begin
             curr_state <= IDLE;
     
         elsif rising_edge(i_clk) then
-            -- Update the value of the signals
+            -- Update the value of the registries
             o_done <= o_done_next;
             o_en <= o_en_next;
             o_we <= o_we_next;

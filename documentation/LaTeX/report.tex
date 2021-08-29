@@ -205,10 +205,10 @@ In questo stato sono condensate tutte le possibili situazioni di attesa in segui
 Inoltre, esso è in grado di richiedere un dato alla memoria, in modo da minimizzare i cicli di clock passati in attesa.
 \subsubsection{READ\_DIM}
 In questo stato vengono letti da memoria i valori corrispondenti al numero di colonne e al numero di righe dell'immagine. \\
-Inoltre viene calcolato l'indirizzo del primo byte di memoria in cui salvare l'immagine equalizzata, chiamato OUT\_BEGIN
+Inoltre viene calcolato l'indirizzo del primo byte di memoria in cui salvare l'immagine equalizzata, chiamato OUT\_BEGIN.
 \subsubsection{SAVE\_MAX\_MIN}
 Stato in cui viene letta la memoria fino a quando l'indirizzo di lettura non corrisponde a OUT\_BEGIN.
-In questo stato vengono salvati il massimo e il minimo valore dei pixel dell'immagine: MAX\_VALUE e MIN\_VALUE
+In questo stato vengono salvati il massimo e il minimo valore dei pixel dell'immagine: MAX\_VALUE e MIN\_VALUE.
 \subsubsection{COMPUTE\_SHIFT}
 Stato in cui viene eseguita la prima parte dell'algoritmo di equalizzazione, ossia quella che non dipende da CURRENT\_PIXEL. \\
 Viene calcolato DELTA\_VALUE e si ricava SHIFT\_LEVEL discretizzando tramite dei controlli a soglia.
@@ -334,7 +334,7 @@ Da notare che sono stati eseguiti altri test sulla falsa riga di quest'ultimo, c
 \end{figure}
 L'unica differenza tra questo test e il precedente è appunto l'utilizzo del segnale di  RESET: in questo caso viene inviato solo a inizio simulazione e non anche tra un'immagine e la successiva. \\
 Anche in questo caso tutte le simulazioni terminano correttamente, in quanto una nuova ricezione del segnale di START causa una reinizializzazione parziale del dispositivo. \\
-Questo test evidenzia la correttezza della relazione tra i segnali i\_start e o\_done: come richiesto da specifica, il segnale DONE è portato ad alto solo dopo la fine dell'elaborazione e rimane alto fino a che il segnale di START non è riportato a 0.
+Questo test evidenzia la correttezza della relazione tra i segnali \textbf{i\_start }e \textbf{o\_done}: come richiesto da specifica, il segnale DONE è portato ad alto solo dopo la fine dell'elaborazione e rimane alto fino a che il segnale di START non è riportato a 0.
 
 \subsubsection{Test generici}
 Infine ci si è voluti assicurare del corretto comportamento del dispositivo mediante altri numerosi test che non vanno a verificare casi particolari ma utilizzano dati qualsiasi il più possibile differenziati. Tali test, qui non riportati per brevità, terminano tutti fornendo il risultato atteso.
